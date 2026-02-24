@@ -1,0 +1,14 @@
+{
+  "name": "pos-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm start --prefix backend\" \"npm run dev --prefix next_pos\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@zxing/browser": "^0.1.5"
+  }
+}
