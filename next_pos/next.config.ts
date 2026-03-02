@@ -2,9 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  output: 'export',
   //allow unused variables
   reactStrictMode: true,
- // swcMinify: true,
+  // swcMinify: true,
   devIndicators: false,
   typescript: {
     ignoreBuildErrors: true, // Ignore TypeScript errors during build
@@ -12,7 +13,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true, // Ignore ESLint errors during build
   },
-  
+
 };
 
 export default nextConfig;

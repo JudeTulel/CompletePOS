@@ -18,14 +18,10 @@ import { CategoryModule } from './categories/category.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'mysql',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get('DB_PORT', 3306),
-        username: configService.get('DB_USERNAME', 'root'),
-        password: configService.get('DB_PASSWORD', ''),
-        database: configService.get('DB_NAME', 'relyon_pos'),
+        type: 'sqlite',
+        database: 'pos.sqlite',
         autoLoadEntities: true,
-        synchronize: configService.get('DB_SYNC', false),
+        synchronize: true, // Always sync for desktop app
         logging: configService.get('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
