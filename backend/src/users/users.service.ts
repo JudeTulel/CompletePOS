@@ -56,4 +56,21 @@ export class UsersService {
     async findById(id: string): Promise<User | undefined> {
         return (await this.usersRepository.findOne({ where: { id } })) ?? undefined;
     }
+
+    async ensureAdminExists(): Promise<void> {
+        const admin = await this.usersRepository.findOne({ where: { role: UserRole.ADMIN } });
+        if (!admin) {
+            const hashedPassword = await bcrypt.hash('admin123', 10);
+            const user = this.usersRepository.create({
+                username: 'admin',
+                password: hashedPassword,
+                role: UserRole.ADMIN,
+                isActive: true,
+            });
+            await this.usersRepository.save(user);
+            console.log('Default admin user created: admin / admin123');
+        } else {
+            console.log('Admin user already exists.');
+        }
+    }
 }

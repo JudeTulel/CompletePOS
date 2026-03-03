@@ -16,7 +16,6 @@
           "sidecar": true
         }
       ]
-    },
-    "shell:allow-sidecar"
+    }
   ]
 }

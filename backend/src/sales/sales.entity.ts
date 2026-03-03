@@ -6,7 +6,7 @@ export class Sale {
     @PrimaryGeneratedColumn({ name: 'SaleID' })
     saleId: number;
 
-    @CreateDateColumn({ name: 'SaleDate', type: 'timestamp',})
+    @CreateDateColumn({ name: 'SaleDate', type: 'timestamp' })
     saleDate: Date;
 
 
@@ -38,6 +38,6 @@ export class Sale {
     @OneToMany(() => SalesDetail, detail => detail.sale)
     details: SalesDetail[];
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 }

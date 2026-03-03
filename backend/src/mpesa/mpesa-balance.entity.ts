@@ -17,6 +17,6 @@ export class MpesaBalance {
   @Column({ nullable: true })
   phoneNumber: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 }

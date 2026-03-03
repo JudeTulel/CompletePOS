@@ -1,0 +1,89 @@
+CREATE TABLE IF NOT EXISTS users (
+    id CHAR(36) PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'cashier') DEFAULT 'cashier',
+    isActive BOOLEAN DEFAULT true,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    barcode VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    cost DECIMAL(10, 2),
+    stock INT DEFAULT 0,
+    minStock INT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sales (
+    SaleID INT AUTO_INCREMENT PRIMARY KEY,
+    SaleDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    TotalAmount DECIMAL(10, 2) NOT NULL,
+    paymentMethod ENUM('cash', 'mpesa', 'hybrid') DEFAULT 'cash',
+    cashierId INT,
+    cashAmount DECIMAL(10, 2),
+    mpesaAmount DECIMAL(10, 2),
+    phone VARCHAR(32),
+    cashRegisterId INT,
+    status VARCHAR(32) DEFAULT 'pending',
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sales_details (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sale_id INT,
+    product_id INT,
+    name VARCHAR(255),
+    quantity INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    total DECIMAL(12, 2) NOT NULL,
+    FOREIGN KEY (sale_id) REFERENCES sales(SaleID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS recommended_product (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    text VARCHAR(255) NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS cash (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    opening DECIMAL(10, 2) DEFAULT 0,
+    closing DECIMAL(10, 2) DEFAULT 0,
+    cashin DECIMAL(10, 2) DEFAULT 0,
+    change DECIMAL(10, 2) DEFAULT 0,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mpesa_balance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    balance DECIMAL(10, 2) DEFAULT 0,
+    lastTransaction DECIMAL(10, 2) DEFAULT 0,
+    transactionType VARCHAR(255),
+    phoneNumber VARCHAR(255),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS category (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS suppliers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    contactPerson VARCHAR(150),
+    email VARCHAR(100),
+    phone VARCHAR(20),
+    address VARCHAR(200),
+    location VARCHAR(100),
+    balance DECIMAL(10, 2) DEFAULT 0,
+    isActive BOOLEAN DEFAULT true
+);

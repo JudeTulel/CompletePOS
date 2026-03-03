@@ -1,14 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as fs from 'fs';
+const { createDatabaseIfNotExists } = require('./create-db');
 
 async function bootstrap() {
-  
+  await createDatabaseIfNotExists();
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS 
   app.enableCors({
-    origin: ['http://localhost:3000'], // or use '*' for dev, but not in production
+    origin: true,
     credentials: true,
   });
 

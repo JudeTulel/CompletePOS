@@ -24,4 +24,4 @@ import { PrinterModule } from '../printer/printer.module';
     PrinterModule,
   ],
 })
-export class SalesModule {}
+export class SalesModule { }

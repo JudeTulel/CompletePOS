@@ -5,9 +5,9 @@ export class Product {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ type: 'varchar', length: 100, unique: true})
+    @Column({ type: 'varchar', length: 100, unique: true })
     barcode: string;
-    
+
     @Column({ type: 'varchar', length: 255 })
     name: string;
 
@@ -26,9 +26,9 @@ export class Product {
     @Column({ type: 'int', default: 0, nullable: true })
     minStock: number | null;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
 }

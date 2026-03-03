@@ -9,6 +9,9 @@ import { MpesaModule } from './mpesa/mpesa.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { CashModule } from './cash/cash.module';
 import { CategoryModule } from './categories/category.module';
+import { UsersService } from './users/users.service';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -18,10 +21,14 @@ import { CategoryModule } from './categories/category.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'sqlite',
-        database: 'pos.sqlite',
+        type: 'mysql',
+        host: 'localhost',
+        port: 3306,
+        username: 'root',
+        password: '@1234',
+        database: 'relyon_pos',
         autoLoadEntities: true,
-        synchronize: true, // Always sync for desktop app
+        synchronize: false,
         logging: configService.get('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
@@ -35,12 +42,16 @@ import { CategoryModule } from './categories/category.module';
     CashModule,
     CategoryModule,
   ],
-  providers: [],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule implements OnApplicationBootstrap {
   private readonly logger = new Logger(AppModule.name);
 
-  onApplicationBootstrap() {
+  constructor(private readonly usersService: UsersService) { }
+
+  async onApplicationBootstrap() {
     this.logger.log('Database connection established successfully.');
+    await this.usersService.ensureAdminExists();
   }
 }

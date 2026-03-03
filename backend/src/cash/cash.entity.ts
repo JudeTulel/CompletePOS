@@ -17,6 +17,6 @@ export class Cash {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   change: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 }
