@@ -78,7 +78,7 @@ const CashierPage: React.FC = () => {
     const fetchCashRegister = async () => {
       const cashRecords = await getCashRegister();
       const openSession = Array.isArray(cashRecords)
-        ? cashRecords.find((c: any) => c.closing == null)
+        ? cashRecords.find((c: any) => c.closing == null || Number(c.closing) === 0)
         : null;
       setCashRegisterId(openSession ? openSession.id : cashierId);
     };
@@ -205,56 +205,63 @@ const CashierPage: React.FC = () => {
     total: number;
   }
 
-  // Unified checkout handler for all payment methods
   const handleCheckout = async (
     data: {
       paymentMethod: "cash" | "mpesa" | "hybrid";
       cashAmount?: number;
       mpesaAmount?: number;
       phone?: string;
-    },
-    miscItems: MiscItem[] = []
+      cashierId?: number;
+      cashRegisterId?: number;
+      totalAmount?: number;
+      miscItems?: MiscItem[];
+    }
   ) => {
     try {
       setIsLoading(true);
-      // Build sale details from cart (do NOT include misc items)
+      // Build sale details from cart (non-misc items)
       const details = cart.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         price: item.price,
         total: item.price * item.quantity,
       }));
-      let cashierId = 1;
-      // Add cashRegisterId to sale payload
+
+      // Use values from modal if available, otherwise fallback to state
+      const saleTotal = data.totalAmount !== undefined ? data.totalAmount : total;
+      const regId = data.cashRegisterId || cashRegisterId || 1;
+      const cid = data.cashierId || (user?.id || 1);
+
       const salePayload: any = {
-        totalAmount: total,
+        totalAmount: saleTotal,
         paymentMethod: data.paymentMethod,
-        cashierId,
-        cashRegisterId,
+        cashierId: cid,
+        cashRegisterId: regId,
         details,
+        miscItems: data.miscItems || []
       };
+
       if (data.cashAmount !== undefined) salePayload.cashAmount = data.cashAmount;
       if (data.mpesaAmount !== undefined) salePayload.mpesaAmount = data.mpesaAmount;
       if (data.phone) salePayload.phone = data.phone;
+
       // Single API call for sale creation
       const sale = await createSale(salePayload);
-      // Send misc items to printer endpoint if any
-      if (sale && sale.id && miscItems && miscItems.length > 0) {
-        await fetch("http://localhost/printer/misc", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ saleId: sale.id, misc: miscItems }),
-        });
-      }
+      
       // Optimistic UI: clear cart and close modal immediately
       setCart([]);
       setModalOpen(false);
+      
       // Show processing feedback
       alert('Processing sale...');
+      
       // Monitor sale status in background
-      if (sale && sale.id) {
-        monitorSaleStatus(sale.id, data.paymentMethod);
+      if (sale && sale.saleId) {
+        monitorSaleStatus(sale.saleId, data.paymentMethod);
+      } else if (sale && sale.id) {
+         monitorSaleStatus(sale.id, data.paymentMethod);
       }
+      
       // Refresh inventory after sale
       loadInventory();
     } catch (error: any) {

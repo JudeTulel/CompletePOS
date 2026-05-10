@@ -1,6 +1,11 @@
+// Polyfill: ensure global crypto is available (required for NestJS TypeORM in pkg/Node18)
+import { webcrypto } from 'crypto';
+if (typeof globalThis.crypto === 'undefined') {
+  (globalThis as any).crypto = webcrypto;
+}
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as fs from 'fs';
 const { createDatabaseIfNotExists } = require('./create-db');
 
 async function bootstrap() {
@@ -17,6 +22,6 @@ async function bootstrap() {
   const host = '0.0.0.0';
 
   await app.listen(port, host);
-  console.log(`NestJS HTTPS server running at http://${host === '0.0.0.0' ? 'localhost or LAN IP' : host}:${port}`);
+  console.log(`NestJS HTTP server running at http://${host === '0.0.0.0' ? 'localhost or LAN IP' : host}:${port}`);
 }
 bootstrap();

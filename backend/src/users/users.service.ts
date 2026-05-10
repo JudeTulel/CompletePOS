@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { User, UserRole } from './users.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class CreateUserDto {
@@ -16,7 +16,7 @@ export class UsersService {
     constructor(
         @InjectRepository(User)
         private readonly usersRepository: Repository<User>,
-    ) {}
+    ) { }
 
     async signup(createUserDto: CreateUserDto): Promise<User> {
         const { username, password, role } = createUserDto;

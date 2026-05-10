@@ -1,0 +1,17 @@
+{
+    "name": "pos-root",
+    "version": "1.0.0",
+    "scripts": {
+        "dev:backend": "cd backend && npm run start:dev",
+        "dev:frontend": "cd next_pos && npm run dev",
+        "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+        "tauri:dev": "npm run build:backend && npx tauri dev",
+        "build:backend": "cd backend && npm run build && npx @yao-pkg/pkg . --targets node20-win-x64 --output ../src-tauri/bin/backend-server-x86_64-pc-windows-msvc.exe && node -e \"require('fs').copyFileSync('schema.sql', '../src-tauri/bin/schema.sql'); require('fs').mkdirSync('../src-tauri/bin/uploads', {recursive:true})\"",
+        "build:frontend": "cd next_pos && npm run build",
+        "build:prepare": "npm run build:backend && npm run build:frontend",
+        "build": "npm run build:prepare && npx tauri build"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}

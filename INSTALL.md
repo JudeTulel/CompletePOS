@@ -55,28 +55,53 @@ Use the following details for the initial login:
 - **Password**: `admin123`
 
 ---
+## 5. Development & Verification (Before Build)
 
-## 5. Development Environment Setup
+To verify that the frontend and backend work correctly before creating a release build:
 
-If you want to run the application from source code:
+### Recommended: Separate Terminals (for Logs)
+This is the best way to see error messages from both parts.
 
-1.  **Clone/Open Project**: Ensure you are in the root directory `C:\pos\POS`.
-2.  **Install Dependencies**:
+1.  **Terminal 1 (Backend)**:
     ```powershell
-    npm install
-    cd backend && npm install
-    cd ../next_pos && npm install
+    cd backend
+    npm run start:dev
     ```
-3.  **Run in Development Mode**:
-    From the root directory:
+    *Wait for "Nest application successfully started".*
+
+2.  **Terminal 2 (Frontend/Tauri)**:
     ```powershell
+    # Run as a regular web app
+    cd next_pos
     npm run dev
+    
+    # OR run inside Tauri (Dev Mode)
+    cd src-tauri
+    npx tauri dev
     ```
-    This will start both the NestJS backend (on port 5000) and the Next.js frontend (on port 3000).
+
+### Unified Command
+I have added a root `package.json` to simplify this. From the root directory:
+```powershell
+# Install concurrent manager
+npm install
+
+# Start both frontend and backend
+npm run dev
+```
 
 ---
-
-## 6. Troubleshooting
+## 6. Building the Final Installer
+Once verified, you can generate the MSI installer:
+1. Ensure the backend is built and sidecar is updated:
+   ```powershell
+   npm run build:backend
+   ```
+2. Build the Tauri application:
+   ```powershell
+   npx tauri build
+   ```
+The installer will be in `src-tauri/target/release/bundle/msi/`.
 
 - **Connection Error**: Ensure MySQL is running on port 3306 with the password `@1234`.
 - **404/500 Errors**: Check the backend logs. In the desktop app, the backend runs as a sidecar; in dev mode, check the terminal output.

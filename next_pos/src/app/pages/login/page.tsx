@@ -73,7 +73,7 @@ const LoginScreen: React.FC = () => {
                         className="absolute top-8 right-8 flex items-center gap-2 px-6 py-3 rounded-full bg-maroon/20 hover:bg-maroon/30 transition backdrop-blur-md shadow-lg border border-maroon/30"
                         onClick={handleAdminLogin}
                     >
-                        <span className="text-2xl">👑</span>
+                        <span className="text-2xl">_</span>
                         <span className="text-off-white font-semibold">Admin Access</span>
                     </button>
                 )}
@@ -159,7 +159,7 @@ const LoginScreen: React.FC = () => {
                         💡 Tip: Contact admin for account access
                         {adminHint && (
                             <div className="mt-3 bg-gradient-to-r from-maroon to-light-maroon rounded-xl px-4 py-2 text-off-white font-bold shadow">
-                                ✨ Admin Mode Ready
+                                 Admin Mode Ready
                             </div>
                         )}
                     </div>

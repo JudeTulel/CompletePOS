@@ -6,7 +6,7 @@
 const isBrowser = typeof window !== 'undefined';
 
 const API_BASE_URL = isBrowser
-  ? `http://${window.location.hostname}:5000`
+  ? `http://localhost:5000`
   : 'http://localhost:5000'; // Fallback for SSR or build phase
 
 // API request helper (no auth)
@@ -48,10 +48,10 @@ export const loginUser = async (credentials: { username: string; password: strin
   const data = await response.json();
   if (isBrowser) {
     // Always set cashierId to 1 for compatibility
-    const userObj: { username: string; role: string; cashierId: number } = { 
-      username: data?.user?.username, 
-      role: data?.user?.role, 
-      cashierId: 1 
+    const userObj: { username: string; role: string; cashierId: number } = {
+      username: data?.user?.username,
+      role: data?.user?.role,
+      cashierId: 1
     };
     localStorage.setItem('user', JSON.stringify(userObj));
   }
@@ -196,13 +196,29 @@ export async function createSale(payload: {
 
 // Sale status polling
 export const getSaleStatus = async (saleId: number | string): Promise<{ status: string; message?: string }> => {
-  const response = await apiRequest(`/sales/sale${saleId}`);
+  const response = await apiRequest(`/sales/${saleId}/status`);
   return await response.json();
 };
 
 // Cash register functions
 export const getCashRegister = async () => {
   const response = await apiRequest('/cash');
+  return await response.json();
+};
+
+export const setOpeningBalance = async (opening: number) => {
+  const response = await apiRequest('/cash/opening', {
+    method: 'POST',
+    body: JSON.stringify({ opening }),
+  });
+  return await response.json();
+};
+
+export const setClosingBalance = async (id: number, closing: number) => {
+  const response = await apiRequest(`/cash/closing/${id}`, {
+    method: 'POST',
+    body: JSON.stringify({ closing }),
+  });
   return await response.json();
 };
 
@@ -316,5 +332,59 @@ export const signupUser = async (userData: { username: string; password: string;
 
 export const getUsers = async () => {
   const response = await apiRequest('/users');
+  return await response.json();
+};
+
+// ==================== REPORTING API FUNCTIONS ====================
+
+export const getSalesReport = async (
+  startDate: Date,
+  endDate: Date,
+  granularity: 'hourly' | 'daily' | 'weekly' | 'monthly' = 'daily'
+) => {
+  const start = startDate.toISOString().split('T')[0];
+  const end = endDate.toISOString().split('T')[0];
+  const response = await apiRequest(`/sales/reports/sales?startDate=${start}&endDate=${end}&granularity=${granularity}`);
+  return await response.json();
+};
+
+export const getProductPerformanceReport = async (
+  startDate: Date,
+  endDate: Date,
+  topN: number = 10
+) => {
+  const start = startDate.toISOString().split('T')[0];
+  const end = endDate.toISOString().split('T')[0];
+  const response = await apiRequest(`/sales/reports/products?startDate=${start}&endDate=${end}&topN=${topN}`);
+  return await response.json();
+};
+
+export const getFinancialSummary = async (
+  startDate: Date,
+  endDate: Date
+) => {
+  const start = startDate.toISOString().split('T')[0];
+  const end = endDate.toISOString().split('T')[0];
+  const response = await apiRequest(`/sales/reports/financial?startDate=${start}&endDate=${end}`);
+  return await response.json();
+};
+
+export const getPaymentMethodBreakdown = async (
+  startDate: Date,
+  endDate: Date
+) => {
+  const start = startDate.toISOString().split('T')[0];
+  const end = endDate.toISOString().split('T')[0];
+  const response = await apiRequest(`/sales/reports/payment-methods?startDate=${start}&endDate=${end}`);
+  return await response.json();
+};
+
+export const getSalesTrend = async (
+  startDate: Date,
+  endDate: Date
+) => {
+  const start = startDate.toISOString().split('T')[0];
+  const end = endDate.toISOString().split('T')[0];
+  const response = await apiRequest(`/sales/reports/trend?startDate=${start}&endDate=${end}`);
   return await response.json();
 };

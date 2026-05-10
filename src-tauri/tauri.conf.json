@@ -7,7 +7,7 @@
     "frontendDist": "../next_pos/out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build:frontend"
   },
   "app": {
     "windows": [
@@ -28,6 +28,10 @@
     "targets": "all",
     "externalBin": [
       "bin/backend-server"
+    ],
+    "resources": [
+      "bin/schema.sql",
+      "bin/uploads"
     ],
     "icon": [
       "icons/32x32.png",

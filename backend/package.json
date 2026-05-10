@@ -5,6 +5,7 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "main": "dist/main.js",
   "bin": "dist/main.js",
   "scripts": {
     "build": "nest build",
@@ -26,7 +27,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.0",
-    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "escpos": "^3.0.0-alpha.6",
@@ -48,11 +49,13 @@
     "@swc/cli": "^0.6.0",
     "@swc/core": "^1.10.7",
     "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
     "@types/multer": "^1.4.13",
     "@types/node": "^22.10.7",
     "@types/supertest": "^6.0.2",
+    "@yao-pkg/pkg": "^6.14.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -84,5 +87,11 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "pkg": {
+    "assets": [
+      "schema.sql",
+      "dist/**/*"
+    ]
   }
 }

@@ -1,20 +1,22 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import SideBar from "@/components/SideBar";
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
-import { 
-  TrendingUp, TrendingDown, DollarSign, Smartphone, Package, 
+import {
+  TrendingUp, TrendingDown, DollarSign, Smartphone, Package,
   Users, Calendar, Clock, BarChart3, PieChart as PieChartIcon,
   RefreshCw, Download, Filter, AlertTriangle, CheckCircle,
   User, LogOut, Shield
 } from "lucide-react";
-import { 
-  getSales, 
-  getProducts, 
+import {
+  getSales,
+  getProducts,
   getCashRegister,
+  setOpeningBalance,
+  setClosingBalance,
   logoutUser,
   signupUser,
   getUsers,
@@ -22,24 +24,6 @@ import {
   withdrawMpesa
 } from "@/components/api";
 import TopProductsCard from '@/components/TopProductsCard';
-
-// Add cash register API helpers
-const setOpeningBalance = async (opening: number) => {
-  const res = await fetch('https://localhost:5000/cash/opening', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ opening })
-  });
-  return res.json();
-};
-const setClosingBalance = async (id: number, closing: number) => {
-  const res = await fetch(`https://localhost:5000/cash/closing/${id}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ closing })
-  });
-  return res.json();
-};
 
 const AdminDashboard: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'hourly' | 'daily' | 'monthly'>('daily');
@@ -59,6 +43,17 @@ const AdminDashboard: React.FC = () => {
   const [closingInput, setClosingInput] = useState('');
   const [mpesaBalance, setMpesaBalance] = useState<number>(0);
   const [withdrawInput, setWithdrawInput] = useState('');
+
+  const openCashSession = Array.isArray(realData.cashRegister)
+    ? realData.cashRegister.find((c: any) => c?.closing == null) ||
+    realData.cashRegister.find((c: any) => Number(c?.closing) === 0)
+    : null;
+
+  const cashBalance = openCashSession
+    ? Number(openCashSession.opening || 0) +
+    Number(openCashSession.cashin || 0) +
+    Number(openCashSession._change || 0)
+    : 0;
 
   useEffect(() => {
     // Check authentication and admin access using localStorage
@@ -83,25 +78,34 @@ const AdminDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      
+
       const [salesData, productsData, cashData] = await Promise.all([
         getSales().catch(() => []),
         getProducts().catch(() => []),
         getCashRegister().catch(() => null)
       ]);
-      
+
       setRealData({
         sales: salesData,
         products: productsData,
         cashRegister: cashData
       });
-      
+
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const refreshCashRegister = useCallback(async () => {
+    try {
+      const cashData = await getCashRegister().catch(() => null);
+      setRealData((prev: any) => ({ ...prev, cashRegister: cashData }));
+    } catch (error) {
+      console.error("Failed to refresh cash register:", error);
+    }
+  }, []);
 
   const loadUsers = async () => {
     try {
@@ -123,6 +127,29 @@ const AdminDashboard: React.FC = () => {
     }, 1000);
   };
 
+  // Keep cash balance up to date without a full dashboard reload
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const interval = window.setInterval(() => {
+      refreshCashRegister();
+    }, 5000);
+
+    const onFocus = () => refreshCashRegister();
+    const onVisibility = () => {
+      if (!document.hidden) refreshCashRegister();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [refreshCashRegister]);
+
   // Fetch Mpesa balance
   useEffect(() => {
     const fetchMpesa = async () => {
@@ -141,7 +168,6 @@ const AdminDashboard: React.FC = () => {
     const saleDate = new Date(sale.createdAt || sale.date);
     const today = new Date();
     if (saleDate.toDateString() === today.toDateString()) {
-      // Ensure totalAmount is a number before summing
       const amount = Number(sale.totalAmount);
       return sum + (isNaN(amount) ? 0 : amount);
     }
@@ -154,7 +180,7 @@ const AdminDashboard: React.FC = () => {
     return saleDate.toDateString() === today.toDateString();
   }).length;
 
-  const lowStockProducts = realData.products.filter((product: any) => 
+  const lowStockProducts = realData.products.filter((product: any) =>
     Number(product.stock) <= Number(product.minStock || 10)
   );
 
@@ -237,17 +263,20 @@ const AdminDashboard: React.FC = () => {
   // After loading dashboard data, set cashRegisterId to open session
   useEffect(() => {
     if (realData.cashRegister && Array.isArray(realData.cashRegister)) {
-      const openSession = realData.cashRegister.find((c: any) => c.closing == null);
+      const openSession =
+        realData.cashRegister.find((c: any) => c?.closing == null) ||
+        realData.cashRegister.find((c: any) => Number(c?.closing) === 0);
       setCashRegisterId(openSession ? openSession.id : null);
     }
   }, [realData.cashRegister]);
 
-  // UI for opening/closing cash register
+  // FIX: store returned id from setOpening so setClosing can reference it
   const handleSetOpening = async () => {
     if (!openingInput) return;
     setIsLoading(true);
     try {
-      await setOpeningBalance(Number(openingInput));
+      const data = await setOpeningBalance(Number(openingInput));
+      setCashRegisterId(data.id); // <-- store the returned cash record ID
       setOpeningInput('');
       await loadDashboardData();
     } catch (e) {
@@ -256,11 +285,13 @@ const AdminDashboard: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const handleSetClosing = async () => {
     if (!closingInput || !cashRegisterId) return;
     setIsLoading(true);
     try {
       await setClosingBalance(cashRegisterId, Number(closingInput));
+      setCashRegisterId(null); // session closed
       setClosingInput('');
       await loadDashboardData();
     } catch (e) {
@@ -290,7 +321,6 @@ const AdminDashboard: React.FC = () => {
   const groupSalesData = () => {
     const sales = realData.sales || [];
     if (timeRange === 'hourly') {
-      // Group today's sales by hour
       const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
       const hourly = hours.map(hour => {
         const salesForHour = sales.filter((sale: any) => {
@@ -307,7 +337,6 @@ const AdminDashboard: React.FC = () => {
       });
       return hourly;
     } else if (timeRange === 'monthly') {
-      // Group sales by month
       const months = Array.from({ length: 12 }, (_, i) => {
         const d = new Date();
         d.setMonth(d.getMonth() - (11 - i));
@@ -328,7 +357,6 @@ const AdminDashboard: React.FC = () => {
         };
       });
     } else {
-      // Group sales by day for last 30 days
       const days = Array.from({ length: 30 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (29 - i));
@@ -356,7 +384,7 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-deep-charcoal via-slate-grey to-light-grey">
       <SideBar />
-      
+
       {/* Top Bar */}
       <div className="fixed top-0 left-20 right-0 bg-slate-grey/95 backdrop-blur-xl border-b border-light-grey/20 z-30 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -384,7 +412,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="ml-20 p-6 pt-24">
         {/* Header Controls */}
         <div className="mb-8">
@@ -395,17 +423,16 @@ const AdminDashboard: React.FC = () => {
                   <button
                     key={range}
                     onClick={() => setTimeRange(range)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                      timeRange === range
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${timeRange === range
                         ? 'bg-maroon text-off-white shadow-lg'
                         : 'text-warm-grey hover:text-off-white hover:bg-light-grey/50'
-                    }`}
+                      }`}
                   >
                     {range.charAt(0).toUpperCase() + range.slice(1)}
                   </button>
                 ))}
               </div>
-              
+
               <button
                 onClick={refreshData}
                 disabled={isLoading}
@@ -424,7 +451,7 @@ const AdminDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-warm-grey text-sm font-medium">Cash Balance</p>
-                <p className="text-2xl font-bold text-off-white">Ksh{Number(realData.cashRegister && Array.isArray(realData.cashRegister) && realData.cashRegister.find((c: any) => c.closing == null)?.opening || 0).toLocaleString()}</p>
+                <p className="text-2xl font-bold text-off-white">Ksh{Number(cashBalance || 0).toLocaleString()}</p>
                 {/* Opening/Closing UI */}
                 {cashRegisterId ? (
                   <div className="mt-2">
@@ -575,38 +602,36 @@ const AdminDashboard: React.FC = () => {
                 <AreaChart data={getCurrentData()}>
                   <defs>
                     <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b1538" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#8b1538" stopOpacity={0.1}/>
+                      <stop offset="5%" stopColor="#8b1538" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#8b1538" stopOpacity={0.1} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                  <XAxis 
-                    dataKey={timeRange === 'hourly' ? 'hour' : timeRange === 'monthly' ? 'month' : 'date'} 
-                    stroke="#718096" 
+                  <XAxis
+                    dataKey={timeRange === 'hourly' ? 'hour' : timeRange === 'monthly' ? 'month' : 'date'}
+                    stroke="#718096"
                     fontSize={12}
                   />
                   <YAxis stroke="#718096" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#2d3748', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#2d3748',
                       border: '1px solid #4a5568',
                       borderRadius: '8px',
                       color: '#f7fafc'
-                    }} 
+                    }}
                   />
-                  <Area 
-                    type="monotone" 
+                  <Area
+                    type="monotone"
                     dataKey="sales"
-                    stroke="#8b1538" 
+                    stroke="#8b1538"
                     strokeWidth={2}
-                    fill="url(#salesGradient)" 
+                    fill="url(#salesGradient)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
-
-          {/* Additional Charts or Content can go here */}
         </div>
       </div>
     </div>
@@ -614,4 +639,3 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
-       

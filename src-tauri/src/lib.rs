@@ -1,4 +1,5 @@
 use tauri_plugin_shell::ShellExt;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,7 +15,19 @@ pub fn run() {
       }
 
       let app_handle = app.handle();
-      let sidecar_command = app_handle.shell().sidecar("backend-server").unwrap();
+
+      // Resolve the resource directory so the sidecar can find schema.sql
+      let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .unwrap_or_default();
+
+      let sidecar_command = app_handle
+        .shell()
+        .sidecar("backend-server")
+        .unwrap()
+        .env("TAURI_RESOURCE_DIR", resource_dir.to_str().unwrap_or(""));
+
       let (mut _rx, _child) = sidecar_command.spawn().unwrap();
 
       Ok(())

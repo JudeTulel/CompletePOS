@@ -10,12 +10,15 @@ import {
   TrendingUp
 } from "lucide-react";
 import {
-  getSales,
-  getProducts,
   getCurrentUser,
   isAuthenticated,
   isAdmin,
-  logoutUser
+  logoutUser,
+  getSalesReport,
+  getProductPerformanceReport,
+  getFinancialSummary,
+  getPaymentMethodBreakdown,
+  getSalesTrend
 } from "@/components/api";
 
 interface User {
@@ -24,6 +27,8 @@ interface User {
 }
 
 interface SaleData {
+  period?: string;
+  date?: string;
   hour?: string;
   day?: string;
   week?: string;
@@ -31,14 +36,34 @@ interface SaleData {
   sales: number;
   transactions: number;
   profit: number;
+  margin?: string;
 }
 
 interface ProductData {
-  name: string;
+  productId?: number;
+  productName: string;
+  name?: string;
   sold: number;
   revenue: number;
   profit: number;
-  margin: number;
+  margin: string;
+}
+
+interface FinancialData {
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: string;
+  transactions: number;
+  itemsSold: number;
+  averageTransactionValue: string;
+  averageItemPrice: string;
+}
+
+interface PaymentData {
+  method: string;
+  count: number;
+  amount: number;
 }
 
 const ReportsPage: React.FC = () => {
@@ -48,63 +73,44 @@ const ReportsPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [salesData, setSalesData] = useState<SaleData[]>([]);
   const [productsData, setProductsData] = useState<ProductData[]>([]);
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
+  const [paymentData, setPaymentData] = useState<PaymentData[]>([]);
+  const [trendData, setTrendData] = useState<SaleData[]>([]);
 
-  // Mock data for demonstration
-  const mockSalesReport = {
-    today: [
-      { hour: '09:00', sales: 450, transactions: 12, profit: 135 },
-      { hour: '10:00', sales: 680, transactions: 18, profit: 204 },
-      { hour: '11:00', sales: 920, transactions: 25, profit: 276 },
-      { hour: '12:00', sales: 1200, transactions: 32, profit: 360 },
-      { hour: '13:00', sales: 1450, transactions: 38, profit: 435 },
-      { hour: '14:00', sales: 1100, transactions: 29, profit: 330 },
-      { hour: '15:00', sales: 890, transactions: 24, profit: 267 },
-      { hour: '16:00', sales: 750, transactions: 20, profit: 225 },
-      { hour: '17:00', sales: 620, transactions: 16, profit: 186 },
-    ],
-    week: [
-      { day: 'Mon', sales: 8500, transactions: 180, profit: 2550 },
-      { day: 'Tue', sales: 9200, transactions: 195, profit: 2760 },
-      { day: 'Wed', sales: 7800, transactions: 165, profit: 2340 },
-      { day: 'Thu', sales: 10500, transactions: 220, profit: 3150 },
-      { day: 'Fri', sales: 12000, transactions: 250, profit: 3600 },
-      { day: 'Sat', sales: 15500, transactions: 320, profit: 4650 },
-      { day: 'Sun', sales: 11200, transactions: 235, profit: 3360 },
-    ],
-    month: [
-      { week: 'Week 1', sales: 45000, transactions: 950, profit: 13500 },
-      { week: 'Week 2', sales: 52000, transactions: 1100, profit: 15600 },
-      { week: 'Week 3', sales: 48000, transactions: 1020, profit: 14400 },
-      { week: 'Week 4', sales: 55000, transactions: 1150, profit: 16500 },
-    ],
-    year: [
-      { month: 'Jan', sales: 180000, transactions: 3800, profit: 54000 },
-      { month: 'Feb', sales: 165000, transactions: 3500, profit: 49500 },
-      { month: 'Mar', sales: 195000, transactions: 4100, profit: 58500 },
-      { month: 'Apr', sales: 210000, transactions: 4400, profit: 63000 },
-      { month: 'May', sales: 225000, transactions: 4700, profit: 67500 },
-      { month: 'Jun', sales: 240000, transactions: 5000, profit: 72000 },
-    ]
+  // Calculate date range based on selection
+  const getDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (dateRange) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(endDate.getMonth() - 1);
+        break;
+      case 'year':
+        startDate.setFullYear(endDate.getFullYear() - 1);
+        break;
+    }
+
+    return { startDate, endDate };
   };
 
-  const mockProductReport = [
-    { name: 'Coffee Beans', sold: 450, revenue: 13500, profit: 4050, margin: 30 },
-    { name: 'Energy Drinks', sold: 320, revenue: 9600, profit: 3360, margin: 35 },
-    { name: 'Snacks', sold: 280, revenue: 5600, profit: 2240, margin: 40 },
-    { name: 'Soft Drinks', sold: 520, revenue: 10400, profit: 3120, margin: 30 },
-    { name: 'Sandwiches', sold: 180, revenue: 9000, profit: 3600, margin: 40 },
-  ];
-
-  const mockFinancialReport = {
-    revenue: 240000,
-    costs: 168000,
-    profit: 72000,
-    margin: 30,
-    expenses: {
-      inventory: 140000,
-      staff: 18000,
-      utilities: 6000,
-      rent: 4000
+  // Determine granularity for sales report
+  const getGranularity = (): 'hourly' | 'daily' | 'weekly' | 'monthly' => {
+    switch (dateRange) {
+      case 'today':
+        return 'hourly';
+      case 'week':
+        return 'daily';
+      case 'month':
+        return 'weekly';
+      case 'year':
+        return 'monthly';
     }
   };
 
@@ -124,17 +130,41 @@ const ReportsPage: React.FC = () => {
     setUser(currentUser);
 
     loadReportData();
-  }, []);
+  }, [dateRange, reportType]);
 
   const loadReportData = async () => {
     try {
       setIsLoading(true);
-      const [sales, products] = await Promise.all([
-        getSales().catch(() => []),
-        getProducts().catch(() => [])
+      const { startDate, endDate } = getDateRange();
+
+      // Load all reports in parallel
+      const [sales, products, financial, payments, trend] = await Promise.all([
+        getSalesReport(startDate, endDate, getGranularity()).catch(() => []),
+        getProductPerformanceReport(startDate, endDate, 10).catch(() => []),
+        getFinancialSummary(startDate, endDate).catch(() => null),
+        getPaymentMethodBreakdown(startDate, endDate).catch(() => []),
+        getSalesTrend(startDate, endDate).catch(() => [])
       ]);
-      setSalesData(sales);
-      setProductsData(products);
+
+      // Format display keys for reports
+      const formattedSales = sales.map((item: any) => ({
+        ...item,
+        hour: item.period,
+        day: item.period,
+        week: item.period,
+        month: item.period,
+      }));
+
+      const formattedProducts = (products as any[]).map((item: any) => ({
+        ...item,
+        name: item.productName,
+      }));
+
+      setSalesData(formattedSales);
+      setProductsData(formattedProducts);
+      setFinancialData(financial);
+      setPaymentData(payments);
+      setTrendData(trend);
     } catch (error) {
       console.error("Failed to load report data:", error);
     } finally {
@@ -152,21 +182,32 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  const getCurrentData = () => {
-    return mockSalesReport[dateRange] || mockSalesReport.month;
-  };
-
   const downloadReport = () => {
-    // Mock download functionality
-    const data = getCurrentData();
+    let data: any[] = [];
+    let filename = `${reportType}_report_${dateRange}.csv`;
+
+    if (reportType === 'sales') {
+      data = salesData;
+    } else if (reportType === 'products') {
+      data = productsData;
+    } else if (reportType === 'financial' && financialData) {
+      data = [financialData];
+    }
+
+    if (data.length === 0) {
+      alert('No data to download');
+      return;
+    }
+
+    const keys = Object.keys(data[0]);
     const csvContent = "data:text/csv;charset=utf-8," +
-      Object.keys(data[0]).join(",") + "\n" +
-      data.map(row => Object.values(row).join(",")).join("\n");
+      keys.join(",") + "\n" +
+      data.map(row => keys.map(key => row[key]).join(",")).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${reportType}_report_${dateRange}.csv`);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -183,7 +224,7 @@ const ReportsPage: React.FC = () => {
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={getCurrentData()}>
+              <AreaChart data={salesData.length > 0 ? salesData : []}>
                 <defs>
                   <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b1538" stopOpacity={0.3} />
@@ -191,11 +232,7 @@ const ReportsPage: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                <XAxis
-                  dataKey={dateRange === 'today' ? 'hour' : dateRange === 'week' ? 'day' : dateRange === 'month' ? 'week' : 'month'}
-                  stroke="#718096"
-                  fontSize={12}
-                />
+                <XAxis dataKey="period" stroke="#718096" fontSize={12} />
                 <YAxis stroke="#718096" fontSize={12} />
                 <Tooltip
                   contentStyle={{
@@ -204,6 +241,7 @@ const ReportsPage: React.FC = () => {
                     borderRadius: '8px',
                     color: '#f7fafc'
                   }}
+                  formatter={(value) => `KSH${Number(value).toLocaleString()}`}
                 />
                 <Area
                   type="monotone"
@@ -225,13 +263,9 @@ const ReportsPage: React.FC = () => {
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={getCurrentData()}>
+              <LineChart data={salesData.length > 0 ? salesData : []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                <XAxis
-                  dataKey={dateRange === 'today' ? 'hour' : dateRange === 'week' ? 'day' : dateRange === 'month' ? 'week' : 'month'}
-                  stroke="#718096"
-                  fontSize={12}
-                />
+                <XAxis dataKey="period" stroke="#718096" fontSize={12} />
                 <YAxis stroke="#718096" fontSize={12} />
                 <Tooltip
                   contentStyle={{
@@ -240,6 +274,7 @@ const ReportsPage: React.FC = () => {
                     borderRadius: '8px',
                     color: '#f7fafc'
                   }}
+                  formatter={(value) => `KSH${Number(value).toLocaleString()}`}
                 />
                 <Line
                   type="monotone"
@@ -265,27 +300,25 @@ const ReportsPage: React.FC = () => {
                 <th className="text-left py-3 px-4 text-warm-grey font-medium">Sales</th>
                 <th className="text-left py-3 px-4 text-warm-grey font-medium">Transactions</th>
                 <th className="text-left py-3 px-4 text-warm-grey font-medium">Profit</th>
-                <th className="text-left py-3 px-4 text-warm-grey font-medium">Avg. Sale</th>
+                <th className="text-left py-3 px-4 text-warm-grey font-medium">Margin</th>
               </tr>
             </thead>
             <tbody>
-              {getCurrentData().map((row, index) => {
-                let periodValue: string = '';
-                if ('hour' in row) periodValue = row.hour;
-                else if ('day' in row) periodValue = row.day;
-                else if ('week' in row) periodValue = row.week;
-                else if ('month' in row) periodValue = row.month;
-                const avgSale = row.sales / row.transactions;
-                return (
+              {salesData.length > 0 ? (
+                salesData.map((row, index) => (
                   <tr key={index} className="border-b border-light-grey/10 hover:bg-slate-grey/30 transition-colors duration-200">
-                    <td className="py-3 px-4 text-off-white font-medium">{periodValue}</td>
-                    <td className="py-3 px-4 text-success-green font-medium">${row.sales.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-off-white font-medium">{row.period}</td>
+                    <td className="py-3 px-4 text-success-green font-medium">KSH{Number(row.sales).toLocaleString()}</td>
                     <td className="py-3 px-4 text-off-white">{row.transactions}</td>
-                    <td className="py-3 px-4 text-maroon font-medium">${row.profit.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-warm-grey">${avgSale.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-maroon font-medium">KSH{Number(row.profit).toLocaleString()}</td>
+                    <td className="py-3 px-4 text-warm-grey">{row.margin}%</td>
                   </tr>
-                );
-              })}
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-warm-grey">No sales data available for the selected period</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -304,9 +337,9 @@ const ReportsPage: React.FC = () => {
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockProductReport}>
+              <BarChart data={productsData.length > 0 ? productsData : []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                <XAxis dataKey="name" stroke="#718096" fontSize={12} />
+                <XAxis dataKey="name" stroke="#718096" fontSize={12} angle={-45} textAnchor="end" height={100} />
                 <YAxis stroke="#718096" fontSize={12} />
                 <Tooltip
                   contentStyle={{
@@ -315,6 +348,7 @@ const ReportsPage: React.FC = () => {
                     borderRadius: '8px',
                     color: '#f7fafc'
                   }}
+                  formatter={(value) => `KSH${Number(value).toLocaleString()}`}
                 />
                 <Bar dataKey="revenue" fill="#8b1538" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -325,14 +359,14 @@ const ReportsPage: React.FC = () => {
         {/* Profit Margins */}
         <div className="card border border-light-grey/20">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-off-white">Profit Margins</h3>
+            <h3 className="text-xl font-semibold text-off-white">Profit Distribution</h3>
             <PieChartIcon size={20} className="text-warm-grey" />
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={mockProductReport}
+                  data={productsData.length > 0 ? productsData : []}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -341,7 +375,7 @@ const ReportsPage: React.FC = () => {
                   dataKey="profit"
                   nameKey="name"
                 >
-                  {mockProductReport.map((entry, index) => (
+                  {productsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={`hsl(${index * 45 + 340}, 60%, ${50 + index * 5}%)`} />
                   ))}
                 </Pie>
@@ -352,6 +386,7 @@ const ReportsPage: React.FC = () => {
                     borderRadius: '8px',
                     color: '#f7fafc'
                   }}
+                  formatter={(value) => `KSH${Number(value).toLocaleString()}`}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -374,23 +409,29 @@ const ReportsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {mockProductReport.map((product, index) => (
-                <tr key={index} className="border-b border-light-grey/10 hover:bg-slate-grey/30 transition-colors duration-200">
-                  <td className="py-3 px-4 text-off-white font-medium">{product.name}</td>
-                  <td className="py-3 px-4 text-off-white">{product.sold}</td>
-                  <td className="py-3 px-4 text-success-green font-medium">${product.revenue.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-maroon font-medium">${product.profit.toLocaleString()}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      product.margin >= 35 ? 'bg-success-green/20 text-success-green' :
-                        product.margin >= 25 ? 'bg-warning-orange/20 text-warning-orange' :
-                          'bg-error-red/20 text-error-red'
-                    }`}>
-                      {product.margin}%
-                    </span>
-                  </td>
+              {productsData.length > 0 ? (
+                productsData.map((product, index) => (
+                  <tr key={index} className="border-b border-light-grey/10 hover:bg-slate-grey/30 transition-colors duration-200">
+                    <td className="py-3 px-4 text-off-white font-medium">{product.name}</td>
+                    <td className="py-3 px-4 text-off-white">{product.sold}</td>
+                    <td className="py-3 px-4 text-success-green font-medium">KSH{Number(product.revenue).toLocaleString()}</td>
+                    <td className="py-3 px-4 text-maroon font-medium">KSH{Number(product.profit).toLocaleString()}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        parseFloat(product.margin) >= 35 ? 'bg-success-green/20 text-success-green' :
+                          parseFloat(product.margin) >= 25 ? 'bg-warning-orange/20 text-warning-orange' :
+                            'bg-error-red/20 text-error-red'
+                      }`}>
+                        {product.margin}%
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-warm-grey">No product data available for the selected period</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -398,117 +439,147 @@ const ReportsPage: React.FC = () => {
     </div>
   );
 
-  const renderFinancialReport = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="card border border-light-grey/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-warm-grey text-sm font-medium">Total Revenue</p>
-              <p className="text-2xl font-bold text-success-green">${mockFinancialReport.revenue.toLocaleString()}</p>
+  const renderFinancialReport = () => {
+    if (!financialData) {
+      return (
+        <div className="card border border-light-grey/20 p-8">
+          <p className="text-center text-warm-grey">No financial data available for the selected period</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="card border border-light-grey/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-warm-grey text-sm font-medium">Total Revenue</p>
+                <p className="text-2xl font-bold text-success-green">KSH{Number(financialData.revenue).toLocaleString()}</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-success-green" />
             </div>
-            <DollarSign className="w-8 h-8 text-success-green" />
+          </div>
+
+          <div className="card border border-light-grey/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-warm-grey text-sm font-medium">Total Costs</p>
+                <p className="text-2xl font-bold text-error-red">KSH{Number(financialData.cost).toLocaleString()}</p>
+              </div>
+              <Package className="w-8 h-8 text-error-red" />
+            </div>
+          </div>
+
+          <div className="card border border-light-grey/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-warm-grey text-sm font-medium">Net Profit</p>
+                <p className="text-2xl font-bold text-maroon">KSH{Number(financialData.profit).toLocaleString()}</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-maroon" />
+            </div>
+          </div>
+
+          <div className="card border border-light-grey/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-warm-grey text-sm font-medium">Profit Margin</p>
+                <p className="text-2xl font-bold text-off-white">{financialData.margin}%</p>
+              </div>
+              <Activity className="w-8 h-8 text-off-white" />
+            </div>
           </div>
         </div>
 
-        <div className="card border border-light-grey/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-warm-grey text-sm font-medium">Total Costs</p>
-              <p className="text-2xl font-bold text-error-red">${mockFinancialReport.costs.toLocaleString()}</p>
-            </div>
-            <Package className="w-8 h-8 text-error-red" />
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="card border border-light-grey/20">
+            <p className="text-warm-grey text-sm font-medium mb-2">Total Transactions</p>
+            <p className="text-3xl font-bold text-off-white">{financialData.transactions}</p>
+          </div>
+          <div className="card border border-light-grey/20">
+            <p className="text-warm-grey text-sm font-medium mb-2">Avg Transaction Value</p>
+            <p className="text-3xl font-bold text-success-green">KSH{Number(financialData.averageTransactionValue).toLocaleString()}</p>
+          </div>
+          <div className="card border border-light-grey/20">
+            <p className="text-warm-grey text-sm font-medium mb-2">Total Items Sold</p>
+            <p className="text-3xl font-bold text-off-white">{financialData.itemsSold}</p>
           </div>
         </div>
 
-        <div className="card border border-light-grey/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-warm-grey text-sm font-medium">Net Profit</p>
-              <p className="text-2xl font-bold text-maroon">${mockFinancialReport.profit.toLocaleString()}</p>
+        {/* Payment Method Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="card border border-light-grey/20">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-off-white">Payment Method Distribution</h3>
+              <PieChartIcon size={20} className="text-warm-grey" />
             </div>
-            <TrendingUp className="w-8 h-8 text-maroon" />
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentData.length > 0 ? paymentData : []}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={120}
+                    paddingAngle={5}
+                    dataKey="amount"
+                    nameKey="method"
+                  >
+                    {paymentData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={`hsl(${index * 120 + 340}, 60%, ${50 + index * 5}%)`} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#2d3748',
+                      border: '1px solid #4a5568',
+                      borderRadius: '8px',
+                      color: '#f7fafc'
+                    }}
+                    formatter={(value) => `KSH${Number(value).toLocaleString()}`}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
 
-        <div className="card border border-light-grey/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-warm-grey text-sm font-medium">Profit Margin</p>
-              <p className="text-2xl font-bold text-off-white">{mockFinancialReport.margin}%</p>
+          <div className="card border border-light-grey/20">
+            <h3 className="text-xl font-semibold text-off-white mb-6">Payment Methods Detail</h3>
+            <div className="space-y-4">
+              {paymentData.length > 0 ? (
+                paymentData.map((payment, index) => {
+                  const percentage = financialData.revenue > 0 ? (payment.amount / financialData.revenue) * 100 : 0;
+                  return (
+                    <div key={index} className="p-4 bg-deep-charcoal/30 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-off-white capitalize">{payment.method}</span>
+                        <span className="text-maroon font-semibold">KSH{Number(payment.amount).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-warm-grey">{payment.count} transactions</span>
+                        <span className="text-warm-grey">{percentage.toFixed(1)}% of revenue</span>
+                      </div>
+                      <div className="w-full bg-light-grey/20 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full bg-maroon transition-all duration-300"
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-center text-warm-grey py-8">No payment data available</p>
+              )}
             </div>
-            <Activity className="w-8 h-8 text-off-white" />
           </div>
         </div>
       </div>
-
-      {/* Expense Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card border border-light-grey/20">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-off-white">Expense Breakdown</h3>
-            <PieChartIcon size={20} className="text-warm-grey" />
-          </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={Object.entries(mockFinancialReport.expenses).map(([key, value]) => ({
-                    name: key.charAt(0).toUpperCase() + key.slice(1),
-                    value
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {Object.entries(mockFinancialReport.expenses).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={`hsl(${index * 90 + 340}, 60%, ${50 + index * 5}%)`} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#2d3748',
-                    border: '1px solid #4a5568',
-                    borderRadius: '8px',
-                    color: '#f7fafc'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="card border border-light-grey/20">
-          <h3 className="text-xl font-semibold text-off-white mb-6">Expense Details</h3>
-          <div className="space-y-4">
-            {Object.entries(mockFinancialReport.expenses).map(([key, value], index) => {
-              const percentage = (value / mockFinancialReport.costs) * 100;
-              return (
-                <div key={key} className="p-4 bg-deep-charcoal/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-off-white capitalize">{key}</span>
-                    <span className="text-maroon font-semibold">${value.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-warm-grey">{percentage.toFixed(1)}% of total costs</span>
-                  </div>
-                  <div className="mt-2 w-full bg-light-grey/20 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full bg-maroon transition-all duration-300"
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-deep-charcoal via-slate-grey to-light-grey">
